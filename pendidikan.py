@@ -34,8 +34,6 @@ params = {
 def insert():	
 	if setting['status'] == 'admin':
 		params.__setitem__('lembaga', '{}'.format(setting['id_lembaga']))
-	print("ID Lembaga : "+setting['id_lembaga'])
-	print("Lembaga ID : "+str(params['lembaga']))
 	data = requests.get(url+'{}pelajar'.format(setting['url']), headers={'x-token':token}, params=params)
 	content = json.loads(data.content)
 	for i in content:
