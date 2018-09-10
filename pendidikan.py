@@ -21,6 +21,27 @@ url_user = {
 	'biktren-putri' : 'bintren-putri/',
 	'lembaga' : ''
 }
+params = {
+	'page':'1',
+	'limit':'20'
+}
+
+def insert():	
+	data = requests.get(url+'{}pelajar'.format(setting['url']), headers={'x-token':token}, params=params)
+	content = json.loads(data.content)
+	for i in content:
+		sql = 'select uuid from induk where uuid="{}"'.format(i['uuid'])
+		cur.execute(sql)
+		if cur.execute(sql) > 0:
+			print("Sudah Ada : ")
+		else:
+			sql = 'insert into induk (uuid, nama_lengkap, kelas) values ("{}","{}","{}")'.format(i['uuid'],i['nama_lengkap'],i['pendidikan']['kelas'])
+			cur.execute(sql)
+			conn.commit()
+			print("Berhasil Nambah : "+i['nama_lengkap'])
+	a = raw_input("Mau Log Out ? (Y/T) : ")
+	if a.lower() == 'y':
+		logout(url)
 
 def update():
 	pedatren = open('pedatren.txt','a')
@@ -32,11 +53,11 @@ def update():
 	content = json.loads(data.content)
 	setting['id_lembaga'] = content[0]['pendidikan']['id_lembaga']
 
-	sql = 'select * from mtsnj where kelas="IX"'
+	sql = 'select * from induk where kelas="vii" and nomor_induk is not null'
 	cur.execute(sql)
 	hasil = cur.fetchall()
 	print("id Lembaga : "+setting['id_lembaga'])
-	for a in hasil:
+	for a in hasil:		
 		try:
 			data = requests.get(url+'person/{}'.format(a[0]), headers=headers)
 			i = json.loads(data.content)
@@ -64,7 +85,7 @@ def update():
 			pedatren.write("\n")
 			print(a)
 	
-	pesan = raw_input("\n\nLog out ?  (Y/T) : ")
+	pesan = raw_input("\nLog out ?  (Y/T) : ")
 	if pesan.lower() == 'y':
 		logout(url)	
 
@@ -79,6 +100,7 @@ def login(url):
 		tok.close()
 		setting['token'] = token
 		print(data.content)
+		print("Silahkan Ulangi :)")
 	else:
 		print("Username atau Password Salah :(")
 		sys.exit()
@@ -88,10 +110,7 @@ def cek_login(url):
 	if data.status_code == 401 or data.status_code == 403:
 		print("Proses Login Ulang")
 		login(url)
-		user_cek()
-	elif data.status_code == 200:
-		print("Sudah Login :)")
-		user_cek()
+	user_cek()
 	return data.status_code
 
 def decode_base64(data):	
@@ -120,4 +139,15 @@ def logout(url):
 			print(data.text+"\nLog Out Berhasil")
 
 if cek_login(url) == 200:
-	update()
+	print '''
+	1. Ambil Data Pedatren, simpan ke database
+	2. Update Nomor Induk
+	'''
+	a = raw_input("\nSilahkan Masukkan Pilihan : ")
+	if a == '1':
+		insert()
+	elif a == '2':
+		update()
+	else:
+		print("Sing genna loh mas")
+		sys.exit()
