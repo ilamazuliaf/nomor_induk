@@ -23,7 +23,7 @@ url_user = {
 }
 params = {
 	'page':'1',
-	'limit':'20'
+	'limit':'1000'
 }
 
 def insert():	
