@@ -30,6 +30,7 @@ CREATE TABLE `induk` (
   `uuid` char(36) NOT NULL,
   `nama_lengkap` varchar(35) NOT NULL,
   `kelas` varchar(10) NOT NULL,
+  `jurusan` varchar(23) NOT NULL,
   `nomor_induk` varchar(18) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 

@@ -6,36 +6,46 @@ conn = MySQLdb.connect(host='localhost', user='root', passwd='', db='pedatren')
 cur = conn.cursor()
 
 url = 'https://api.pedatren.nuruljadid.app/'
+
 with open('token.txt', 'r') as peda:
 	token = peda.read()
 setting = {
 	'url':'',
 	'level':'',
 	'token':token,
-	'id_lembaga': ''
+	'id_lembaga': '',
+	'status': ''
 }
 
 url_user = {
 	'admin' : '',
 	'biktren-putra' : 'biktren-putra/',
 	'biktren-putri' : 'bintren-putri/',
-	'lembaga' : ''
+	'lembaga' : '',
+	'wilayah': '',
+	'mahrom':''
 }
 params = {
 	'page':'1',
-	'limit':'1000'
+	'limit':'5',
+	'sortby': 'kelas_lembaga.id'
 }
 
 def insert():	
+	if setting['status'] == 'admin':
+		params.__setitem__('lembaga', '{}'.format(setting['id_lembaga']))
+	print("ID Lembaga : "+setting['id_lembaga'])
+	print("Lembaga ID : "+str(params['lembaga']))
 	data = requests.get(url+'{}pelajar'.format(setting['url']), headers={'x-token':token}, params=params)
 	content = json.loads(data.content)
 	for i in content:
 		sql = 'select uuid from induk where uuid="{}"'.format(i['uuid'])
 		cur.execute(sql)
-		if cur.execute(sql) > 0:
+		if cur.fetchone() > 0:
 			print("Sudah Ada : ")
 		else:
-			sql = 'insert into induk (uuid, nama_lengkap, kelas) values ("{}","{}","{}")'.format(i['uuid'],i['nama_lengkap'],i['pendidikan']['kelas'])
+			sql = 'insert into induk (uuid, nama_lengkap, kelas, jurusan) values ("{}","{}","{}","{}")'\
+			.format(i['uuid'],i['nama_lengkap'],str(i['pendidikan']['kelas']),str(i['pendidikan']['jurusan']))
 			cur.execute(sql)
 			conn.commit()
 			print("Berhasil Nambah : "+i['nama_lengkap'])
@@ -49,14 +59,9 @@ def update():
 		'x-token':token,
 		'content-type': 'application/json'
 	}
-	data = requests.get(url+'{}pelajar?page=1&limit=1'.format(setting['url']), headers=headers)
-	content = json.loads(data.content)
-	setting['id_lembaga'] = content[0]['pendidikan']['id_lembaga']
-
-	sql = 'select * from induk where kelas="vii" and nomor_induk is not null'
+	sql = 'select uuid, nomor_induk from induk where kelas="vii" and nomor_induk is not null'
 	cur.execute(sql)
 	hasil = cur.fetchall()
-	print("id Lembaga : "+setting['id_lembaga'])
 	for a in hasil:		
 		try:
 			data = requests.get(url+'person/{}'.format(a[0]), headers=headers)
@@ -66,21 +71,29 @@ def update():
 			for b in range(cek):
 				if i['pendidikan'][num]['id_lembaga'] == setting['id_lembaga'] :
 					payload = {
-						'nomor_induk':'%s'%a[3],
+						'nomor_induk':'%s'%a[1],
 						'id_lembaga':'%s'%i['pendidikan'][num]['id_lembaga'],
 						'tanggal_mulai':'%s'%i['pendidikan'][num]['tanggal_mulai']
-					}
-					a = ("\nSedang Meng Update Nomor Induk Nanda : "+i['nama_lengkap']+"\n")
+					}					
+					data = requests.put(url+'person/{}/pendidikan/{}'.format(i['uuid'],\
+						i['pendidikan'][num]['id']), data=json.dumps(payload), headers=headers)
+					a = ("Sedang Meng Update Nomor Induk Nanda : "+i['nama_lengkap'])
 					pedatren.write(a)
-					data = requests.put(url+'person/{}/pendidikan/{}'.format(i['uuid'],i['pendidikan'][num]['id']), data=json.dumps(payload), headers=headers)
-					b = (str(data.content))
-					pedatren.write(b)
 					pedatren.write("\n")
-					print(a)
-					print(b)
+					b = (str(data.text)+"\n\n")
+					if data.status_code == 200:
+						b = (str(b))
+						pedatren.write(b)
+						print(a)
+						print(b)
+					else:											
+						pedatren.write("Nomor Induk Ada Yang Sama dengan lembaga lain :(\n")
+						pedatren.write(b)
+						print(a)
+						print(b)
 				num += 1
 		except Exception, e:
-			a = ("Ada Error UUID : "+a[0], e)
+			a = ("Ada Error UUID : "+str(a[0]), e)
 			pedatren.write(str(a))
 			pedatren.write("\n")
 			print(a)
@@ -124,12 +137,13 @@ def user_cek():
 	user_level = json.loads(decode_base64(user))['scope'][0]
 	setting['level'] = user_level
 	for i in url_user:
-		if 'lembaga' in i:
+		if 'lembaga' in user_level:
 			b = user_level.split("-")[1]
 			setting['url'] = "lembaga/{}/".format(b)
 		elif user_level in i:
 			a = url_user[user_level]
 			setting['url'] = a
+			setting['status'] = 'admin'
 
 def logout(url):
 	pesan = raw_input("Yakin Mau Logout ? (Y/T) : ")
@@ -138,16 +152,29 @@ def logout(url):
 		if data.status_code == 200:
 			print(data.text+"\nLog Out Berhasil")
 
+def setting_lembaga():
+	data = requests.get(url+'setting/lembaga', headers={'x-token':token})
+	content = json.loads(data.content)
+	num = 1
+	for i in content:
+		print("{}  ".format(num)+i['nama'])
+		setting.__setitem__('{}'.format(num),'{}'.format(i['id']))
+		num += 1
+
 if cek_login(url) == 200:
-	print '''
-	1. Ambil Data Pedatren, simpan ke database
-	2. Update Nomor Induk
-	'''
-	a = raw_input("\nSilahkan Masukkan Pilihan : ")
-	if a == '1':
-		insert()
-	elif a == '2':
-		update()
+	setting_lembaga()
+	a = raw_input("\nMasukkan Pilihan : ")
+	if a in setting:
+		setting['id_lembaga'] = setting[a]
+		print '''
+		1. Ambil Data Pedatren, simpan ke database
+		2. Update Nomor Induk'''
+		a = raw_input("\nSilahkan Masukkan Pilihan : ")
+		if a == '1':
+			insert()
+		elif a == '2':			
+			update()
+		else:
+			print("Sing genna loh mas")
 	else:
-		print("Sing genna loh mas")
-		sys.exit()
+		print("Sing Genna Loh Mas:(")
